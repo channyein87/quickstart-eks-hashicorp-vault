@@ -1,0 +1,36 @@
+apiVersion: v1
+data:
+  mapAccounts: |
+    []
+  mapRoles: |
+    - "groups":
+      - "system:bootstrappers"
+      - "system:nodes"
+      "rolearn": "arn:aws:iam::487523894433:role/lab-ondemand"
+      "username": "system:node:{{EC2PrivateDNSName}}"
+    - "groups":
+      - "system:masters"
+      "rolearn": "arn:aws:iam::487523894433:role/eks-qa-entrypoint-IamStack-1C7-KubernetesAdminRole-1ESZXCRFEOO1D"
+      "username": "arn:aws:iam::487523894433:role/eks-qa-entrypoint-IamStack-1C7-KubernetesAdminRole-1ESZXCRFEOO1D"
+    - "groups":
+      - "system:masters"
+      "rolearn": "arn:aws:iam::487523894433:role/awsqs-kubernetes-helm"
+      "username": "arn:aws:iam::487523894433:role/awsqs-kubernetes-helm"
+    - "groups":
+      - "system:masters"
+      "rolearn": "arn:aws:iam::487523894433:role/awsqs-kubernetes-get"
+      "username": "arn:aws:iam::487523894433:role/awsqs-kubernetes-get"
+    - "groups":
+      - "system:masters"
+      "rolearn": "arn:aws:iam::487523894433:role/awsqs-kubernetes-resource"
+      "username": "arn:aws:iam::487523894433:role/awsqs-kubernetes-resource"
+  mapUsers: |
+    []
+immutable: false
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/created-by: terraform-aws-eks-blueprints
+    app.kubernetes.io/managed-by: terraform-aws-eks-blueprints
+  name: aws-auth
+  namespace: kube-system
