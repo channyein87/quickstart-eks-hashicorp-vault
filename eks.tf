@@ -5,6 +5,7 @@ module "eks" {
   vpc_id             = var.vpc_id
   public_subnet_ids  = var.public_subnet_ids
   private_subnet_ids = var.private_subnet_ids
+  map_roles          = local.eks_quickstart_roles
 
   managed_node_groups = {
     ondemand = {
@@ -46,20 +47,4 @@ resource "aws_ec2_tag" "shared" {
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   resource_id = each.value
   value       = "shared"
-}
-
-resource "aws_ec2_tag" "public_subnets_elb" {
-  for_each = toset(var.public_subnet_ids)
-
-  key         = "kubernetes.io/role/elb"
-  resource_id = each.value
-  value       = "1"
-}
-
-resource "aws_ec2_tag" "private_subnets_elb" {
-  for_each = toset(var.private_subnet_ids)
-
-  key         = "kubernetes.io/role/internal-elb"
-  resource_id = each.value
-  value       = "1"
 }

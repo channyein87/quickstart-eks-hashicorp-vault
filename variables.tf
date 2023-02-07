@@ -1,7 +1,7 @@
 variable "cluster_name" {
   description = "Cluster name."
   type        = string
-  default     = "lab"
+  default     = "eks-quickstart"
 }
 
 variable "vpc_id" {
@@ -27,5 +27,11 @@ variable "region" {
 variable "profile" {
   description = "AWS profile."
   type        = string
-  default     = ""
+  default     = "default"
+}
+
+variable "entrypoint_cfn_stack_name" {
+  description = "Name of the CloudFormation stack using quickstart entrypoint with existing cluster."
+  type        = string
+  default     = null
 }
