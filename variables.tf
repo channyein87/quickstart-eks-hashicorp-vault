@@ -30,6 +30,12 @@ variable "profile" {
   default     = "default"
 }
 
+variable "dynamodb_name" {
+  description = "Name of the DynamoDB table."
+  type        = string
+  default     = "eks-quickstart-vault"
+}
+
 variable "entrypoint_cfn_stack_name" {
   description = "Name of the CloudFormation stack using quickstart entrypoint with existing cluster."
   type        = string

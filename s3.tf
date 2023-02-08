@@ -8,4 +8,5 @@ resource "aws_s3_bucket_object" "quickstart_eks_hashicorp_vault" {
   bucket = aws_s3_bucket.eks_quickstart_vault.id
   key    = each.value
   source = each.value
+  etag   = filemd5(each.value)
 }

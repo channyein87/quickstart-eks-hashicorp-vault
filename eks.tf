@@ -19,11 +19,6 @@ module "eks" {
   }
 }
 
-resource "time_sleep" "wait" {
-  depends_on      = [module.eks]
-  create_duration = "3m"
-}
-
 module "eks_addons" {
   source = "github.com/aws-ia/terraform-aws-eks-blueprints//modules/kubernetes-addons?ref=v4.22.0"
 
@@ -37,8 +32,6 @@ module "eks_addons" {
   eks_cluster_id                      = module.eks.eks_cluster_id
   enable_aws_load_balancer_controller = true
   enable_metrics_server               = true
-
-  depends_on = [time_sleep.wait]
 }
 
 resource "aws_ec2_tag" "shared" {
@@ -47,4 +40,26 @@ resource "aws_ec2_tag" "shared" {
   key         = "kubernetes.io/cluster/${var.cluster_name}"
   resource_id = each.value
   value       = "shared"
+}
+
+resource "aws_ec2_tag" "external_lb" {
+  for_each = {
+    for k, v in data.aws_subnet.public_subnets : k => v
+    if !contains(keys(v.tags), "kubernetes.io/role/elb")
+  }
+
+  key         = "kubernetes.io/role/elb"
+  resource_id = each.key
+  value       = "1"
+}
+
+resource "aws_ec2_tag" "internal_lb" {
+  for_each = {
+    for k, v in data.aws_subnet.private_subnets : k => v
+    if !contains(keys(v.tags), "kubernetes.io/role/internal-elb")
+  }
+
+  key         = "kubernetes.io/role/internal-elb"
+  resource_id = each.key
+  value       = "1"
 }

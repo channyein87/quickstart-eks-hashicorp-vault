@@ -35,3 +35,13 @@ data "aws_cloudformation_stack" "eks_quickstart_entrypoint" {
   count = var.entrypoint_cfn_stack_name != null ? 1 : 0
   name  = var.entrypoint_cfn_stack_name
 }
+
+data "aws_subnet" "public_subnets" {
+  for_each = toset(var.public_subnet_ids)
+  id       = each.value
+}
+
+data "aws_subnet" "private_subnets" {
+  for_each = toset(var.private_subnet_ids)
+  id       = each.value
+}

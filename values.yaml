@@ -1,0 +1,68 @@
+global:
+  enabled: true
+  tlsDisable: false
+ui:
+  enabled: true
+  externalPort: 443
+  serviceType: "LoadBalancer"
+  loadBalancerSourceRanges:
+  - 0.0.0.0/0
+  annotations: |
+    service.beta.kubernetes.io/aws-load-balancer-ssl-cert: arn:aws:acm:ap-southeast-2:487523894433:certificate/7b6b3dda-5198-467e-b6e2-d03ce42671a5
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: https
+    service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443,8200"
+    service.beta.kubernetes.io/do-loadbalancer-healthcheck-path: "/ui/"
+    external-dns.alpha.kubernetes.io/hostname: "eks-qs-vault.lab.awscontoso.com"
+    external-dns.alpha.kubernetes.io/ttl: "30"
+server:
+  nodeSelector: |
+    eks.amazonaws.com/nodegroup: Vault-sg-069b6ef39d33ea3e0
+  extraEnvironmentVars:
+    VAULT_CACERT: /vault/userconfig/vault-server-tls/vault.ca
+    AWS_ROLE_SESSION_NAME: some_name
+  volumes:
+    - name: userconfig-vault-server-tls
+      secret:
+        defaultMode: 420
+        secretName: vault-server-tls
+  volumeMounts:
+    - mountPath: /vault/userconfig/vault-server-tls
+      name: userconfig-vault-server-tls
+      readOnly: true
+  image:
+    repository: "vault"
+    tag: 1.6.0
+  logLevel: "debug"
+  serviceAccount:
+    annotations: !Sub |
+      eks.amazonaws.com/role-arn: "arn:aws:iam::487523894433:role/VaultUnsealIAMRole-sg-069b6ef39d33ea3e0"
+  ha:
+    enabled: true
+    replicas: 3
+
+    config: |
+      ui = true
+
+      listener "tcp" {
+        tls_disable = 0
+        tls_cert_file = "/vault/userconfig/vault-server-tls/vault.crt"
+        tls_key_file  = "/vault/userconfig/vault-server-tls/vault.key"
+        tls_client_ca_file = "/vault/userconfig/vault-server-tls/vault.ca"
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+
+      storage "dynamodb" {
+        table = "eks-quickstart-vault"
+        ha_enabled = "true"
+        region = "ap-southeast-2"
+        read_capacity  = 5
+        write_capacity = 5
+      }
+
+      service_registration "kubernetes" {}
+
+      seal "awskms" {
+        region     = "ap-southeast-2"
+        kms_key_id = "73a0d32e-3aaf-4140-8925-8a2a154fa553"
+      }

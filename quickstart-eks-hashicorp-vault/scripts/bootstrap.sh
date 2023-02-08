@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -x
+
 VAULT_NUMBER_OF_KEYS_FOR_UNSEAL=3
 VAULT_NUMBER_OF_KEYS=5
 
@@ -25,9 +28,19 @@ chmod +x ./kubectl
 mkdir -p $HOME/bin && cp ./kubectl $HOME/bin/kubectl && export PATH=$PATH:$HOME/bin
 kubectl version --short --client
 
+echo "Vault dns: ${PROTOCOL}://${VAULT_0}:8200"
+
+echo "Waiting for Vault to start..."
+counter=0
 until curl -k -fs -o /dev/null ${PROTOCOL}://${VAULT_0}:8200/v1/sys/init; do
-    echo "Waiting for Vault to start..."
-    sleep 1
+    sleep 5
+    ((counter++))
+    if [ "$counter" == 60 ]; then
+        echo "counter is $counter"
+        exit 1
+    else
+        echo "counter is $counter"
+    fi
 done
 
 # See if vault is initialized
@@ -75,10 +88,10 @@ kubectl exec vault-${RELEASE_NAME}-0 -- "/bin/sh" "-c" "export VAULT_SKIP_VERIFY
 
 # Join other pods to the raft cluster
 # TODO: Make this flexible for 3 5 7 nodes etc
-kubectl exec -t vault-${RELEASE_NAME}-1 -- "/bin/sh" "-c" "vault operator raft join -tls-skip-verify -leader-ca-cert=\"$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)\" ${PROTOCOL}://${VAULT_0}:${VAULT_PORT}"
-kubectl exec -t vault-${RELEASE_NAME}-2 -- "/bin/sh" "-c" "vault operator raft join -tls-skip-verify -leader-ca-cert=\"$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)\" ${PROTOCOL}://${VAULT_0}:${VAULT_PORT}"
+# kubectl exec -t vault-${RELEASE_NAME}-1 -- "/bin/sh" "-c" "vault operator raft join -tls-skip-verify -leader-ca-cert=\"$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)\" ${PROTOCOL}://${VAULT_0}:${VAULT_PORT}"
+# kubectl exec -t vault-${RELEASE_NAME}-2 -- "/bin/sh" "-c" "vault operator raft join -tls-skip-verify -leader-ca-cert=\"$(cat /var/run/secrets/kubernetes.io/serviceaccount/ca.crt)\" ${PROTOCOL}://${VAULT_0}:${VAULT_PORT}"
 
 # Show who we have joined
-kubectl exec -t vault-${RELEASE_NAME}-0 -- "/bin/sh" "-c" "export VAULT_SKIP_VERIFY=true && vault operator raft list-peers"
+# kubectl exec -t vault-${RELEASE_NAME}-0 -- "/bin/sh" "-c" "export VAULT_SKIP_VERIFY=true && vault operator raft list-peers"
 # If we see All raft peers we have succeeded in bootstrapping.
 # TODO: Add validation for the number ... currently relying on exit 0 status of kubectl command

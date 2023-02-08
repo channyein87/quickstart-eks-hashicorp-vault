@@ -41,6 +41,7 @@ Metadata:
           - HostedZoneID
           - ACMSSLCertificateArn
           - Nodes
+          - DynamoDBTable
       - Label:
           default: Quick Start Configuration
         Parameters:
@@ -84,6 +85,8 @@ Metadata:
         default: Amazon EKS cluster name
       HttpProxy:
         default: HTTP proxy
+      DynamoDBTable:
+        default: DynamoDB table name
 Parameters:
   ClusterName:
     Type: String
@@ -126,6 +129,10 @@ Parameters:
     AllowedValues:
       - "3"
     Description: Number of dedicated Vault server nodes and pods.
+  DynamoDBTable:
+    Type: String
+    Default: "eks-quickstart-vault"
+    Description: DynamoDB table name for Vault storage.
   HttpProxy:
     Type: String
     Default: ""
@@ -345,10 +352,30 @@ Resources:
           - Effect: Allow
             Action:
               - iam:GetRole
-            Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:role/VaultUnsealIAMRole-${PsuedoRandom.GroupId}"
+            Resource: "*"
           - Effect: Allow
             Action:
               - kms:*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+              - dynamodb:DescribeLimits
+              - dynamodb:DescribeTimeToLive
+              - dynamodb:ListTagsOfResource
+              - dynamodb:DescribeReservedCapacityOfferings
+              - dynamodb:DescribeReservedCapacity
+              - dynamodb:ListTables
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:CreateTable
+              - dynamodb:DeleteItem
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:UpdateItem
+              - dynamodb:Scan
+              - dynamodb:DescribeTable
             Resource: "*"
   VaultRole:
     Type: AWS::IAM::Role
@@ -419,6 +446,26 @@ Resources:
             Action:
               - iam:GetRole
             Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:role/VaultIAMRole-${PsuedoRandom.GroupId}"
+          - Effect: Allow
+            Action:
+              - dynamodb:DescribeLimits
+              - dynamodb:DescribeTimeToLive
+              - dynamodb:ListTagsOfResource
+              - dynamodb:DescribeReservedCapacityOfferings
+              - dynamodb:DescribeReservedCapacity
+              - dynamodb:ListTables
+              - dynamodb:BatchGetItem
+              - dynamodb:BatchWriteItem
+              - dynamodb:CreateTable
+              - dynamodb:DeleteItem
+              - dynamodb:GetItem
+              - dynamodb:GetRecords
+              - dynamodb:PutItem
+              - dynamodb:Query
+              - dynamodb:UpdateItem
+              - dynamodb:Scan
+              - dynamodb:DescribeTable
+            Resource: !Sub "arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:role/${DynamoDBTable}"
   VaultKmsKey:
     Type: AWS::KMS::Key
     DependsOn: [ VaultRole, VaultUnsealRole ]
@@ -538,32 +585,34 @@ Resources:
               eks.amazonaws.com/role-arn: "arn:aws:iam::${AWS::AccountId}:role/VaultUnsealIAMRole-${PsuedoRandom.GroupId}"
           ha:
             enabled: true
-            nodes: ${Nodes}
-            raft:
-              enabled: true
-              setNodeId: true
-              config: |
-                ui = true
+            replicas: ${Nodes}
 
-                listener "tcp" {
-                  tls_disable = 0
-                  tls_cert_file = "/vault/userconfig/vault-server-tls/vault.crt"
-                  tls_key_file  = "/vault/userconfig/vault-server-tls/vault.key"
-                  tls_client_ca_file = "/vault/userconfig/vault-server-tls/vault.ca"
-                  address = "[::]:8200"
-                  cluster_address = "[::]:8201"
-                }
+            config: |
+              ui = true
 
-                storage "raft" {
-                  path    = "/vault/data"
-                }
+              listener "tcp" {
+                tls_disable = 0
+                tls_cert_file = "/vault/userconfig/vault-server-tls/vault.crt"
+                tls_key_file  = "/vault/userconfig/vault-server-tls/vault.key"
+                tls_client_ca_file = "/vault/userconfig/vault-server-tls/vault.ca"
+                address = "[::]:8200"
+                cluster_address = "[::]:8201"
+              }
 
-                service_registration "kubernetes" {}
+              storage "dynamodb" {
+                table = "${DynamoDBTable}"
+                ha_enabled = "true"
+                region = "${AWS::Region}"
+                read_capacity  = 10
+                write_capacity = 15
+              }
 
-                seal "awskms" {
-                  region     = "${AWS::Region}"
-                  kms_key_id = "${VaultKmsKey}"
-                }
+              service_registration "kubernetes" {}
+
+              seal "awskms" {
+                region     = "${AWS::Region}"
+                kms_key_id = "${VaultKmsKey}"
+              }
       - SSLCertificate: !If [ CreateDns, !GetAtt "ACMCertificate.Outputs.ACMCertificate", !Ref "ACMSSLCertificateArn" ]
         IsInternalLoadBalancer: !If [ InternalLoadBalancer , 'service.beta.kubernetes.io/aws-load-balancer-internal: "true"', 'service.beta.kubernetes.io/aws-load-balancer-internal: "false"' ]
         # SecurityGroups: !Sub "service.beta.kubernetes.io/aws-load-balancer-extra-security-groups: ${VaultSecurityGroup}"
